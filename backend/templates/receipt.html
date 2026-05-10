@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #1a1a1a; font-size: 13px; line-height: 1.5; margin: 0; padding: 32px; background: #f6f7fb; }
+    .shell { max-width: 760px; margin: 0 auto; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1f9d5b; padding-bottom: 16px; margin-bottom: 18px; }
+    .brand { font-size: 22px; font-weight: 700; }
+    .subbrand { font-size: 11px; color: #666; margin-top: 2px; }
+    .title { color: #1f9d5b; font-size: 24px; font-weight: 700; text-align: right; }
+    .title-sub { font-size: 11px; color: #888; text-align: right; margin-top: 4px; }
+    .meta { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .meta .label { font-size: 10px; color: #8a8f98; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .meta .value { font-size: 14px; font-weight: 600; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; background: #dcfce7; color: #166534; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+    .section { border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; padding: 16px 18px; margin-bottom: 16px; }
+    .section-title { font-size: 11px; font-weight: 700; color: #667085; text-transform: uppercase; border-bottom: 1px solid #eef2f7; padding-bottom: 8px; margin-bottom: 10px; letter-spacing: 1.4px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #eef2f7; text-align: left; }
+    th { background: #f9fafb; font-size: 10px; text-transform: uppercase; color: #667085; letter-spacing: 1px; }
+    .right { text-align: right; }
+    .subtotal td { font-weight: 600; color: #374151; border-top: 1px solid #d1d5db; background: #f9fafb; }
+    .total td { font-weight: 700; color: #1f9d5b; border-top: 2px solid #1f9d5b; font-size: 14px; }
+    .muted { color: #6b7280; font-size: 12px; }
+    .note { border: 1px solid #bbf7d0; background: #f0fdf4; border-radius: 12px; padding: 16px 18px; margin-top: 10px; color: #166534; }
+    .footer { border-top: 1px solid #e5e7eb; padding-top: 12px; color: #6b7280; font-size: 11px; text-align: center; }
+  </style>
+</head>
+<body>
+  {% set pax_count = booking.passengers|length %}
+  <div class="shell">
+    <div class="header">
+      <div>
+        <div class="brand">FlightHub</div>
+        <div class="subbrand">FlightHub Inc.</div>
+      </div>
+      <div>
+        <div class="title">RECEIPT</div>
+        <div class="title-sub">Payment received</div>
+      </div>
+    </div>
+
+    <div class="meta">
+      <div>
+        <div class="label">Booking Reference</div>
+        <div class="value">{{ booking.pnr }}</div>
+      </div>
+      <div>
+        <div class="label">Status</div>
+        <div class="value"><span class="badge">PAID</span></div>
+      </div>
+      <div>
+        <div class="label">Class</div>
+        <div class="value">{{ booking.class_type|capitalize }}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Flight Details</div>
+      <table>
+        <tr><td>Airline</td><td>{{ booking.flight.airline_name }}</td></tr>
+        <tr><td>Flight Number</td><td>{{ booking.flight.flight_number }}</td></tr>
+        <tr><td>Route</td><td>{{ booking.flight.origin }} → {{ booking.flight.destination }}</td></tr>
+        <tr><td>Departure</td><td>{{ booking.flight.departure_time }}</td></tr>
+        <tr><td>Arrival</td><td>{{ booking.flight.arrival_time }}</td></tr>
+        {% if booking.return_flight %}
+        <tr><td>Return Flight</td><td>{{ booking.return_flight.airline_name }} {{ booking.return_flight.flight_number }}</td></tr>
+        <tr><td>Return Route</td><td>{{ booking.return_flight.origin }} → {{ booking.return_flight.destination }}</td></tr>
+        <tr><td>Return Departure</td><td>{{ booking.return_flight.departure_time }}</td></tr>
+        {% endif %}
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Passenger List</div>
+      <table>
+        <thead><tr><th>Passenger Name</th><th>Seat</th><th>ID / Passport</th></tr></thead>
+        <tbody>
+          {% for passenger in booking.passengers %}
+          <tr><td>{{ passenger.name }}</td><td>{{ passenger.seat or "-" }}</td><td>{{ passenger.passport_or_id or "-" }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Cost Breakdown</div>
+      <table>
+        <tbody>
+          <tr>
+            <td>Outbound ticket {{ booking.class_type|capitalize }} ({{ pax_count }} pax)</td>
+            <td class="right">Rp {{ "{:,.0f}".format(booking.outbound_ticket_price).replace(",", ".") }}</td>
+          </tr>
+          {% if booking.is_round_trip and booking.return_ticket_price %}
+          <tr>
+            <td>Return ticket {{ booking.class_type|capitalize }} ({{ pax_count }} pax)</td>
+            <td class="right">Rp {{ "{:,.0f}".format(booking.return_ticket_price).replace(",", ".") }}</td>
+          </tr>
+          {% endif %}
+          {% if booking.outbound_baggage_price and booking.outbound_baggage_price > 0 %}
+          <tr>
+            <td>Outbound baggage{% if booking.outbound_baggage_kg %} ({{ booking.outbound_baggage_kg }} kg){% endif %}</td>
+            <td class="right">Rp {{ "{:,.0f}".format(booking.outbound_baggage_price).replace(",", ".") }}</td>
+          </tr>
+          {% endif %}
+          {% if booking.is_round_trip and booking.return_baggage_price and booking.return_baggage_price > 0 %}
+          <tr>
+            <td>Return baggage{% if booking.return_baggage_kg %} ({{ booking.return_baggage_kg }} kg){% endif %}</td>
+            <td class="right">Rp {{ "{:,.0f}".format(booking.return_baggage_price).replace(",", ".") }}</td>
+          </tr>
+          {% endif %}
+          {% if booking.selected_insurance %}
+            {% for ins in booking.selected_insurance %}
+            <tr>
+              <td>{{ ins.label }}</td>
+              <td class="right">Rp {{ "{:,.0f}".format(ins.price).replace(",", ".") }}</td>
+            </tr>
+            {% endfor %}
+          {% endif %}
+          <tr class="total">
+            <td>Total payment</td>
+            <td class="right">Rp {{ "{:,.0f}".format(booking.grand_total if booking.grand_total else booking.total_amount).replace(",", ".") }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      This receipt is issued electronically by FlightHub Inc. and is valid without a wet signature.
+    </div>
+
+    <div class="footer">
+      FlightHub | booking@flighthub.com | +62 21 1234 5678
+    </div>
+  </div>
+</body>
+</html>
