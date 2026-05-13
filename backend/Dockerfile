@@ -1,14 +1,11 @@
 FROM python:3.11-slim
 
 # Install gcsfuse
-RUN apt-get update && apt-get install -y \
-    gnupg \
-    lsb-release \
-    curl \
-    fuse \
-  && echo "deb http://packages.cloud.google.com/apt gcsfuse-$(lsb_release -c -s) main" \
+RUN apt-get update && apt-get install -y curl gnupg fuse \
+  && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+     | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+  && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt gcsfuse-bookworm main" \
      > /etc/apt/sources.list.d/gcsfuse.list \
-  && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
   && apt-get update && apt-get install -y gcsfuse \
   && rm -rf /var/lib/apt/lists/*
 
