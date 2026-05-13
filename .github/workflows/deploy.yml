@@ -28,15 +28,15 @@ jobs:
       - name: Build & Push Backend Image
         run: |
           docker build \
-            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking/backend:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking-accelerator/backend:${{ github.sha }} \
             ./backend
           docker push \
-            ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking/backend:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking-accelerator/backend:${{ github.sha }}
 
       - name: Deploy Backend to Cloud Run
         run: |
           gcloud run deploy travel-booking-backend \
-            --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking/backend:${{ github.sha }} \
+            --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking-accelerator/backend:${{ github.sha }} \
             --region=${{ env.REGION }} \
             --platform=managed \
             --service-account=travel-booking-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
@@ -75,15 +75,15 @@ jobs:
         run: |
           docker build \
             --build-arg NEXT_PUBLIC_API_URL=${{ steps.backend-url.outputs.url }} \
-            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking/frontend:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking-accelerator/frontend:${{ github.sha }} \
             ./frontend
           docker push \
-            ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking/frontend:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking-accelerator/frontend:${{ github.sha }}
 
       - name: Deploy Frontend to Cloud Run
         run: |
           gcloud run deploy travel-booking-frontend \
-            --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking/frontend:${{ github.sha }} \
+            --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking-accelerator/frontend:${{ github.sha }} \
             --region=${{ env.REGION }} \
             --platform=managed \
             --allow-unauthenticated \
