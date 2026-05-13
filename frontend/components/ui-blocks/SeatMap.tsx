@@ -52,7 +52,8 @@ export default function SeatMap({
   business_available = true,
   disabled = false,
 }: Props) {
-  const layout = (aircraft_type && SEAT_LAYOUTS[aircraft_type]) ?? DEFAULT_LAYOUT;
+  const layout: { biz: string[]; eco: string[] } =
+    (aircraft_type && SEAT_LAYOUTS[aircraft_type]) || DEFAULT_LAYOUT;
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [tooltip, setTooltip] = useState<{ seat: string; price: string | null } | null>(null);
