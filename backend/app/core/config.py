@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
 
 
 class Settings(BaseSettings):
@@ -15,7 +16,7 @@ class Settings(BaseSettings):
     SMTP_FROM: str = ""
     SMTP_USE_TLS: bool = True
 
-    DATABASE_URL: str = "sqlite+aiosqlite:///./booking.db"
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:////mnt/gcs-db/travel_booking.db")
     MODEL_NAME: str = "gemini-2.0-flash"
 
 

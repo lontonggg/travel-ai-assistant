@@ -1,0 +1,92 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGION: asia-southeast1
+  REGISTRY: asia-southeast1-docker.pkg.dev
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Build & Push Backend Image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking/backend:${{ github.sha }} \
+            ./backend
+          docker push \
+            ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking/backend:${{ github.sha }}
+
+      - name: Deploy Backend to Cloud Run
+        run: |
+          gcloud run deploy travel-booking-backend \
+            --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking/backend:${{ github.sha }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --service-account=travel-booking-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --execution-environment=gen2 \
+            --allow-unauthenticated \
+            --max-instances=1 \
+            --memory=1Gi \
+            --cpu=1 \
+            --set-env-vars="GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }},GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }},DATABASE_URL=sqlite+aiosqlite:////mnt/gcs-db/travel_booking.db,FRONTEND_URL=${{ secrets.FRONTEND_URL }}"
+
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Get Backend URL
+        id: backend-url
+        run: |
+          URL=$(gcloud run services describe travel-booking-backend \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Build & Push Frontend Image
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=${{ steps.backend-url.outputs.url }} \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking/frontend:${{ github.sha }} \
+            ./frontend
+          docker push \
+            ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking/frontend:${{ github.sha }}
+
+      - name: Deploy Frontend to Cloud Run
+        run: |
+          gcloud run deploy travel-booking-frontend \
+            --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/travel-booking/frontend:${{ github.sha }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --max-instances=3 \
+            --memory=512Mi \
+            --set-env-vars="NEXT_PUBLIC_API_URL=${{ steps.backend-url.outputs.url }}"
