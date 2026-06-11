@@ -170,9 +170,9 @@ export default function DateRangeCalendar({
 
   const handleConfirm = () => {
     if (!departure) return;
-    const depStr = departure.toLocaleDateString("en-GB", { day: "short", month: "short", year: "numeric" });
+    const depStr = departure.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
     if (returnDate) {
-      const retStr = returnDate.toLocaleDateString("en-GB", { day: "short", month: "short", year: "numeric" });
+      const retStr = returnDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
       sendMessage(`I'll leave on ${depStr} and return on ${retStr}.`);
     } else {
       sendMessage(`I'm departing on ${depStr}.`);
