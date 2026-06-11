@@ -23,7 +23,7 @@ export default function FlightCarousel({ flights, origin, destination, date, dis
     if (disabled) return;
     setSelectedId(flight.id);
     const depTime = new Date(flight.departure_time).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-    const price = flight.economy_price ? `Rp${(flight.economy_price / 1000).toFixed(0)}K` : "price pending";
+    const price = flight.price_economy ? `Rp${(flight.price_economy / 1000).toFixed(0)}K` : "price pending";
     sendMessage(`I want to book ${flight.flight_number} departing at ${depTime} (${price}).`);
   };
 
