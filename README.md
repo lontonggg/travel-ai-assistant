@@ -39,11 +39,12 @@ User: "Aku punya budget 5 juta IDR, 4 hari, pengen beach vibe."
 
 The backend routes this to `advisor_agent`, which can:
 
-- Ask for missing basics such as origin, budget, vibe, trip length, and passenger count.
-- Suggest destinations using `suggest_destinations_tool`.
-- Show destination cards with city, country, vibe tags, estimated round-trip price, daily cost estimate, and reason.
-- Estimate a full trip budget using `estimate_trip_budget_tool`.
+- Ask for missing basics such as budget, vibe, trip length, and passenger count. If the user's origin was already detected (via browser geolocation), it's used directly without asking.
+- Suggest destinations using `suggest_destinations_tool`, passing a `vibe` inferred from the user's wording (e.g. "beach getaway" → `beach`, "food trip" → `food`).
+- Show destination cards with city, country, vibe tags, estimated round-trip price, daily cost estimate, and reason — ranked by vibe match first, then price.
+- Estimate a full trip budget using `estimate_trip_budget_tool`, rendered as a budget breakdown card.
 - Search or inspect flights when prices/times are useful for the recommendation.
+- Honestly tell the user when a destination/region has no direct flight from their origin (via the tool's `no_direct_flight` list) instead of guessing prices.
 
 When the user chooses a concrete destination, the advisor stores the trip basics with `set_trip_basics_tool` and hands off to `booking_agent`.
 
@@ -116,6 +117,9 @@ SQLite via SQLAlchemy async + aiosqlite
 - `backend/app/agents/booking_agent.py`: handles the strict booking flow.
 - `backend/app/agents/flow.py`: defines phases, allowed tools, state parsing, progress metadata, and phase instructions.
 - `backend/app/agents/tools/*`: agent-callable functions that return structured results and optional UI component payloads.
+  - `basics.py`: saves trip basics (origin, destination, pax, class) when handing off from advisor to booking.
+  - `common.py`: shared helpers such as airport validation.
+  - `advisor.py`: destination suggestions and budget breakdown tools.
 - `backend/app/services/*`: application logic for flights, bookings, seats, payments, email, and recommendations.
 - `backend/app/db/*`: SQLAlchemy async database setup and models.
 - `backend/app/data/*`: airport, airline, and seed flight data.
@@ -126,8 +130,10 @@ SQLite via SQLAlchemy async + aiosqlite
 - `frontend/hooks/useChat.ts`: chat state, session handling, SSE consumption, and UI event handling.
 - `frontend/lib/api.ts`: `POST /api/chat` streaming client.
 - `frontend/lib/chat-stream.ts`: parses SSE data lines into typed chat events.
-- `frontend/components/chat/*`: chat shell, message bubbles, typing state, tool messages, agent status, and progress tracker.
-- `frontend/components/ui-blocks/*`: interactive components rendered from backend UI events.
+- `frontend/components/chat/*`: chat shell (`ChatWindow`), message bubbles, typing state, tool messages, agent status, and progress tracker.
+- `frontend/components/ui-blocks/*`: interactive components rendered from backend UI events, including destination suggestions and budget breakdown cards for the advisor flow.
+- `frontend/lib/geolocation.ts`: detects the nearest airport from the browser's geolocation, sent to the backend as `detected_origin`.
+- `frontend/lib/currency.ts`: formats prices in the traveler's local currency based on origin/destination airports.
 
 ## Deterministic Flow
 
@@ -181,7 +187,7 @@ Create `backend/.env`:
 GOOGLE_CLOUD_PROJECT=your-project-id
 GOOGLE_CLOUD_REGION=asia-southeast1
 GOOGLE_GENAI_USE_VERTEXAI=true
-MODEL_NAME=gemini-2.0-flash
+MODEL_NAME=gemini-2.5-flash
 
 DATABASE_URL=sqlite+aiosqlite:///./travel_booking.db
 
@@ -204,7 +210,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 Notes:
 
 - The code defaults `DATABASE_URL` to `/mnt/gcs-db/travel_booking.db`, which is useful for the backend Docker image because it mounts a GCS bucket. For local development, use the local SQLite URL above.
-- `MODEL_NAME` defaults to `gemini-2.0-flash`.
+- `MODEL_NAME` defaults to `gemini-2.5-flash`.
 - SMTP values can be empty for development, but email sending will not work until they are configured.
 
 ## Run Locally
@@ -314,6 +320,13 @@ travel-booking-agent/
 │   │   │   ├── booking_agent.py
 │   │   │   ├── flow.py
 │   │   │   └── tools/
+│   │   │       ├── advisor.py
+│   │   │       ├── basics.py
+│   │   │       ├── booking.py
+│   │   │       ├── common.py
+│   │   │       ├── notification.py
+│   │   │       ├── payment.py
+│   │   │       └── search.py
 │   │   ├── api/
 │   │   │   ├── chat.py
 │   │   │   ├── flights.py
@@ -333,10 +346,21 @@ travel-booking-agent/
 │   ├── app/
 │   ├── components/
 │   │   ├── chat/
+│   │   │   ├── ChatWindow.tsx
+│   │   │   ├── MessageBubble.tsx
+│   │   │   ├── ToolMessage.tsx
+│   │   │   ├── AgentStatus.tsx
+│   │   │   ├── ProgressTracker.tsx
+│   │   │   └── TypingIndicator.tsx
 │   │   └── ui-blocks/
 │   ├── contexts/
 │   ├── hooks/
 │   ├── lib/
+│   │   ├── api.ts
+│   │   ├── chat-stream.ts
+│   │   ├── currency.ts
+│   │   ├── geolocation.ts
+│   │   └── types.ts
 │   ├── Dockerfile
 │   └── package.json
 └── README.md
