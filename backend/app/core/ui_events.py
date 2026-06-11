@@ -17,6 +17,11 @@ def ui_component_event(kind: str, props: Any, message_id: str) -> str:
     return f"data: {json.dumps(data)}\n\n"
 
 
+def phase_event(phase: str, step: int, total: int, label: str) -> str:
+    data = {"type": "phase", "phase": phase, "step": step, "total": total, "label": label}
+    return f"data: {json.dumps(data)}\n\n"
+
+
 def done_event() -> str:
     return 'data: {"type": "done"}\n\n'
 

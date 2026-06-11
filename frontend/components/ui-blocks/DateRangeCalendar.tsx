@@ -170,10 +170,12 @@ export default function DateRangeCalendar({
 
   const handleConfirm = () => {
     if (!departure) return;
+    const depStr = departure.toLocaleDateString("en-GB", { day: "short", month: "short", year: "numeric" });
     if (returnDate) {
-      sendMessage(`Departure date: ${formatDate(departure)}, return date: ${formatDate(returnDate)}. Round-trip.`);
+      const retStr = returnDate.toLocaleDateString("en-GB", { day: "short", month: "short", year: "numeric" });
+      sendMessage(`I'll leave on ${depStr} and return on ${retStr}.`);
     } else {
-      sendMessage(`Departure date: ${formatDate(departure)}. One-way for now.`);
+      sendMessage(`I'm departing on ${depStr}.`);
     }
   };
 

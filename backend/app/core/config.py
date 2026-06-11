@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = True
 
     DATABASE_URL: str = "sqlite+aiosqlite:////mnt/gcs-db/travel_booking.db"
-    MODEL_NAME: str = "gemini-2.0-flash"
+    MODEL_NAME: str = "gemini-2.5-flash"
 
 
 settings = Settings()

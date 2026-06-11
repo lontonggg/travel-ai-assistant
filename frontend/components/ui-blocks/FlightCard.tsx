@@ -8,6 +8,13 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
+const BADGE_STYLES: Record<string, string> = {
+  Recommended: "bg-accent text-white",
+  "Best Value": "bg-emerald-500 text-white",
+  Cheapest: "bg-amber-400 text-amber-950",
+  Fastest: "bg-sky-500 text-white",
+};
+
 const AIRLINE_COLORS: Record<string, string> = {
   GA: "bg-blue-600",
   JT: "bg-orange-500",
@@ -55,6 +62,22 @@ export default function FlightCard({
           </div>
           <div className="text-right text-xs opacity-80">{flight.aircraft_type}</div>
         </div>
+      </div>
+
+      {/* Badges */}
+      <div className="flex flex-wrap gap-1 px-4 pt-2 min-h-8 bg-white">
+        {flight.badges && flight.badges.length > 0 && (
+          <>
+          {flight.badges.map((badge) => (
+            <span
+              key={badge}
+              className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${BADGE_STYLES[badge] ?? "bg-gray-200 text-gray-700"}`}
+            >
+              {badge}
+            </span>
+          ))}
+          </>
+        )}
       </div>
 
       {/* Route */}

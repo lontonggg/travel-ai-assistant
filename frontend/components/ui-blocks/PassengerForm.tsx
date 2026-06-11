@@ -53,14 +53,12 @@ export default function PassengerForm({ pax = 1, disabled = false }: Props) {
     if (pax === 1) {
       const p = passengers[0];
       sendMessage(
-        `My details: name ${formatTicketName(p)} (${p.first_middle_name} ${p.last_name}), ` +
-        `gender ${p.gender}, date of birth ${p.dob}, ID number ${p.passport_or_id}, email ${p.email}.`
+        `Here's my info: I'm ${p.first_middle_name} ${p.last_name}, born ${p.dob}, ` +
+        `ID ${p.passport_or_id}, email ${p.email}.`
       );
     } else {
-      const lines = passengers.map((p, i) =>
-        `Passenger ${i + 1}: ${formatTicketName(p)}, gender ${p.gender}, dob ${p.dob}, ID ${p.passport_or_id}, email ${p.email}`
-      ).join(". ");
-      sendMessage(`Passenger details: ${lines}.`);
+      const names = passengers.map(p => `${p.first_middle_name} ${p.last_name}`).join(", ");
+      sendMessage(`Traveling with me: ${names}. All details entered.`);
     }
   };
 

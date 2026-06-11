@@ -75,9 +75,9 @@ export default function SeatMap({
     if (selectedSeats.length !== pax || submitted) return;
     setSubmitted(true);
     if (pax === 1) {
-      sendMessage(`I'd like seat ${selectedSeats[0]}.`);
+      sendMessage(`Let me take seat ${selectedSeats[0]}.`);
     } else {
-      sendMessage(`Seat selection: ${selectedSeats.join(", ")}.`);
+      sendMessage(`We'll sit in seats ${selectedSeats.join(", ")}.`);
     }
   };
 

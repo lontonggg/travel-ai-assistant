@@ -1,31 +1,10 @@
 from datetime import date
 from typing import Any
 
-from app.data.airports import AIRPORTS
+from app.agents.tools.common import validate_airports as _validate_airports
 from app.db.database import AsyncSessionLocal
 from app.services.flight_service import get_flight_by_id, search_flights
-
-
-def _available_cities_message() -> str:
-    from collections import defaultdict
-    by_country: dict[str, list[str]] = defaultdict(list)
-    for ap in AIRPORTS.values():
-        by_country[ap["country"]].append(f"{ap['city']} ({ap['code']})")
-    lines = ["Currently available cities:"]
-    for country, cities in sorted(by_country.items()):
-        lines.append(f"  {country}: {', '.join(sorted(cities))}")
-    return "\n".join(lines)
-
-
-def _validate_airports(origin: str, destination: str) -> str | None:
-    """Return an error message if either airport code is not in our data."""
-    unknown = [code.upper() for code in (origin, destination) if code.upper() not in AIRPORTS]
-    if unknown:
-        return (
-            f"Sorry, we don't have flights data for: {', '.join(unknown)}.\n\n"
-            + _available_cities_message()
-        )
-    return None
+from app.services.recommendation_service import rank_flights
 
 
 async def show_date_picker_tool(
@@ -104,6 +83,8 @@ async def search_flights_tool(
 
     async with AsyncSessionLocal() as db:
         flights = await search_flights(db, origin, destination, date, pax, class_type)
+
+    flights = rank_flights(flights, class_type)
 
     return {
         "result": {

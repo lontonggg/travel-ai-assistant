@@ -8,9 +8,10 @@ import TypingIndicator from "./TypingIndicator";
 import { Send } from "lucide-react";
 
 const SUGGESTIONS = [
-  "✈️  Singapore → Bangkok, next Friday",
-  "🗽  New York to Los Angeles this weekend",
-  "🌴  Jakarta → Singapore tomorrow morning",
+  "I want a beach getaway on a budget",
+  "Suggest a great food destination for me",
+  "Show me affordable flights to North America",
+  "What's a good adventure trip for 2 people?",
 ];
 
 export default function ChatWindow() {
@@ -49,16 +50,16 @@ export default function ChatWindow() {
                 <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-3">
                   <span className="text-2xl">✈️</span>
                 </div>
-                <h2 className="text-sm font-semibold text-gray-900">How can I help you today?</h2>
+                <h2 className="text-sm font-semibold text-gray-900">Your AI travel buddy</h2>
                 <p className="text-xs text-gray-500 mt-1">
-                  Search flights, book seats, manage your trip
+                  Smart trips, better prices, instant bookings
                 </p>
               </div>
               <div className="flex flex-col gap-1.5 w-full">
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s}
-                    onClick={() => sendMessage(s.replace(/^[^\s]+\s+/, ""))}
+                    onClick={() => sendMessage(s)}
                     className="text-left px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-700 hover:border-accent hover:text-accent hover:bg-accent/5 transition-colors"
                   >
                     {s}

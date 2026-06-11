@@ -5,6 +5,7 @@ import type { AgentStatus as AgentStatusType } from "@/lib/types";
 
 const AGENT_LABELS: Record<string, string> = {
   root_agent: "Thinking",
+  advisor_agent: "Thinking through trip ideas",
   search_agent: "Looking up flights",
   booking_agent: "Preparing your booking",
   payment_agent: "Processing payment",
@@ -24,13 +25,27 @@ const TOOL_LABELS: Record<string, string> = {
   show_date_picker_tool: "Opening calendar",
   show_insurance_tool: "Loading insurance options",
   show_payment_form_tool: "Opening payment options",
+  set_trip_basics_tool: "Setting up your trip",
+  suggest_destinations_tool: "Finding trip ideas",
+  estimate_trip_budget_tool: "Estimating your budget",
+  transfer_to_advisor_agent: "Finding the right trip ideas",
   transfer_to_search_agent: "Looking up flights",
-  transfer_to_booking_agent: "Opening booking",
+  transfer_to_booking_agent: "Starting your booking",
   transfer_to_payment_agent: "Going to payment",
   transfer_to_notification_agent: "Sending your confirmation",
-  transfer_to_agent: "Switching agent",
+  transfer_to_agent: "Getting things ready",
   transfer_back_to_parent: "Finishing up",
 };
+
+function humanizeStatus(value: string) {
+  return value
+    .replace(/^transfer_to_/, "")
+    .replace(/^transfer_back_to_/, "")
+    .replace(/_agent$/, "")
+    .replace(/_tool$/, "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 function DotLoader() {
   return (
@@ -50,8 +65,8 @@ function DotLoader() {
 export default function AgentStatus({ status }: { status: AgentStatusType }) {
   const label = status
     ? status.tool
-      ? TOOL_LABELS[status.tool] ?? status.tool.replace(/_tool$/, "")
-      : AGENT_LABELS[status.agent] ?? status.agent
+      ? TOOL_LABELS[status.tool] ?? humanizeStatus(status.tool)
+      : AGENT_LABELS[status.agent] ?? humanizeStatus(status.agent)
     : null;
 
   return (

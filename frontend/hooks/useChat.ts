@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getSessionId, streamChat } from "@/lib/api";
 import { parseEvent } from "@/lib/chat-stream";
 import { detectNearestAirport, type Airport } from "@/lib/geolocation";
-import type { AgentStatus, Message, UiComponentEvent } from "@/lib/types";
+import type { AgentStatus, Message, PhaseEvent, UiComponentEvent } from "@/lib/types";
+
+export type Phase = Omit<PhaseEvent, "type">;
 
 const MESSAGES_KEY = "flighthub_messages";
 
@@ -21,6 +23,7 @@ function loadMessages(): Message[] {
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>(loadMessages);
   const [agentStatus, setAgentStatus] = useState<AgentStatus>(null);
+  const [phase, setPhase] = useState<Phase | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [latestAssistantId, setLatestAssistantId] = useState<string | null>(null);
   const sessionId = useRef<string | null>(null);
@@ -120,6 +123,10 @@ export function useChat() {
             );
             break;
 
+          case "phase":
+            setPhase({ phase: event.phase, step: event.step, total: event.total, label: event.label });
+            break;
+
           case "done":
             // Flush as soon as backend signals done — don't wait for TCP close
             flushUi();
@@ -150,9 +157,10 @@ export function useChat() {
     }
     setMessages([]);
     setAgentStatus(null);
+    setPhase(null);
     setIsStreaming(false);
     setLatestAssistantId(null);
   }, []);
 
-  return { messages, agentStatus, isStreaming, latestAssistantId, sendMessage, resetSession };
+  return { messages, agentStatus, phase, isStreaming, latestAssistantId, sendMessage, resetSession };
 }

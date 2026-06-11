@@ -17,6 +17,14 @@ export type UiComponentEvent = {
   message_id: string;
 };
 
+export type PhaseEvent = {
+  type: "phase";
+  phase: string;
+  step: number;
+  total: number;
+  label: string;
+};
+
 export type DoneEvent = {
   type: "done";
 };
@@ -30,6 +38,7 @@ export type ChatEvent =
   | AgentStatusEvent
   | TextDeltaEvent
   | UiComponentEvent
+  | PhaseEvent
   | DoneEvent
   | ErrorEvent;
 
@@ -50,7 +59,9 @@ export type UiKind =
   | "invoice_card"
   | "ticket_card"
   | "email_sent"
-  | "error_message";
+  | "error_message"
+  | "destination_suggestions"
+  | "budget_breakdown";
 
 export type Message = {
   id: string;
@@ -85,6 +96,18 @@ export type Flight = {
   business_available?: boolean;
   aircraft_type: string;
   total_seats: number;
+  badges?: string[];
+};
+
+export type DestinationSuggestion = {
+  code: string;
+  city: string;
+  country: string;
+  vibes: string[];
+  round_trip_price_per_person: number;
+  round_trip_total: number;
+  daily_budget_usd: number;
+  reason: string;
 };
 
 export type SeatInfo = {

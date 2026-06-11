@@ -1,5 +1,7 @@
 from typing import Any
 
+from google.adk.tools import ToolContext
+
 from app.db.database import AsyncSessionLocal
 from app.services.booking_service import get_booking
 from app.services.email_service import send_invoice_and_ticket
@@ -8,7 +10,7 @@ from app.services.payment_service import process_payment
 VALID_METHODS = {"credit_card", "debit_card", "qris"}
 
 
-async def show_payment_form_tool(booking_id: int, total_amount: float) -> dict[str, Any]:
+async def show_payment_form_tool(booking_id: int, total_amount: float, tool_context: ToolContext) -> dict[str, Any]:
     """Show the payment method selection form to the user.
 
     Args:
@@ -24,6 +26,8 @@ async def show_payment_form_tool(booking_id: int, total_amount: float) -> dict[s
     amount = booking["total_amount"] if booking else total_amount
     base_amount = booking.get("base_amount") if booking else None
 
+    tool_context.state["payment_form_shown"] = True
+
     return {
         "result": {"booking_id": booking_id, "total_amount": amount, "base_amount": base_amount},
         "ui": {
@@ -33,7 +37,7 @@ async def show_payment_form_tool(booking_id: int, total_amount: float) -> dict[s
     }
 
 
-async def process_payment_tool(booking_id: int, method: str) -> dict[str, Any]:
+async def process_payment_tool(booking_id: int, method: str, tool_context: ToolContext) -> dict[str, Any]:
     """Process payment for a booking. Always succeeds (simulated).
 
     Args:
@@ -49,6 +53,8 @@ async def process_payment_tool(booking_id: int, method: str) -> dict[str, Any]:
     async with AsyncSessionLocal() as db:
         payment = await process_payment(db, booking_id, method)
         booking = await get_booking(db, booking_id)
+
+    tool_context.state["payment_status"] = payment.get("status", "paid")
 
     # Send emails immediately after payment — don't wait for agent Phase 14
     emails_sent = 0

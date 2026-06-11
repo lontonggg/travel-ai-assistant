@@ -31,6 +31,14 @@ ROUTE_CONFIGS = [
     ("BKK", "CNX",  65,  45, ["TG", "FD", "PG"],       [6, 8, 10, 13, 16, 19]),
     ("KUL", "PEN",  50,  40, ["MH", "AK", "OD"],       [6, 8, 10, 12, 14, 16, 18, 20]),
 
+    # --- More direct beach/culture/budget options from Indonesia ---
+    ("CGK", "HKT", 180, 160, ["TG", "FD"],             [9, 16]),
+    ("CGK", "CNX", 200, 165, ["TG", "FD"],             [10]),
+    ("CGK", "PEN", 140, 130, ["MH", "AK"],             [11, 18]),
+    ("DPS", "HKT", 230, 190, ["TG", "FD"],             [10]),
+    ("DPS", "PEN", 190, 150, ["MH", "AK"],             [12]),
+    ("DPS", "CNX", 250, 195, ["TG"],                   [11]),
+
     # --- Asia → US (long-haul) ---
     ("SIN", "LAX", 870, 650, ["SQ", "UA"],             [9, 22]),
     ("SIN", "JFK", 1080, 800, ["SQ", "UA"],            [10, 23]),
@@ -102,6 +110,18 @@ def _flight_number(airline_code: str, counter: int) -> str:
     return f"{airline_code}{base + counter}"
 
 
+def _time_factor(dep_hour: int) -> float:
+    """Realistic time-of-day pricing: red-eye/early flights are cheaper,
+    midday departures carry a small premium."""
+    if dep_hour < 8:
+        return 0.92
+    if 11 <= dep_hour <= 15:
+        return 1.08
+    if dep_hour >= 21:
+        return 0.95
+    return 1.0
+
+
 def generate_seed_flights() -> list[dict[str, Any]]:
     flights: list[dict[str, Any]] = []
     flight_id = 1
@@ -119,7 +139,7 @@ def generate_seed_flights() -> list[dict[str, Any]]:
             departure = _REF.replace(hour=dep_hour, minute=0, second=0, microsecond=0)
             arrival = departure + timedelta(minutes=duration_minutes)
 
-            economy_price = round(base_price_usd * factor)
+            economy_price = round(base_price_usd * factor * _time_factor(dep_hour))
             business_price = round(economy_price * 2.8) if airline_code in BUSINESS_CLASS_AIRLINES else 0.0
 
             fn = _flight_number(airline_code, counters[airline_code])

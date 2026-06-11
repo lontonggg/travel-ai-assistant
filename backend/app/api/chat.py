@@ -7,22 +7,25 @@ from typing import AsyncGenerator
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import DatabaseSessionService
 from google.genai.types import Content, Part
 from pydantic import BaseModel
 
+from app.agents.flow import compute_phase, progress_info
 from app.agents.root_agent import root_agent
+from app.core.config import settings
 from app.core.ui_events import (
     agent_status_event,
     done_event,
     error_event,
+    phase_event,
     text_delta_event,
     ui_component_event,
 )
 
 router = APIRouter()
 
-session_service = InMemorySessionService()
+session_service = DatabaseSessionService(db_url=settings.DATABASE_URL)
 APP_NAME = "flighthub_booking"
 
 
@@ -68,8 +71,9 @@ def _build_message(message: str, detected_origin: DetectedOrigin | None) -> str:
     if detected_origin:
         location_context = (
             f" The user's device is near {detected_origin.city} ({detected_origin.code}). "
-            f"If they have not specified a departure city, ask them to confirm whether "
-            f"they're departing from {detected_origin.city} ({detected_origin.code}) before searching."
+            f"If they have not specified a departure city, assume they are departing from "
+            f"{detected_origin.city} ({detected_origin.code}) without asking — "
+            f"just mention it naturally (e.g. 'from {detected_origin.city}') so they can correct you if it's wrong."
         )
 
     return (
@@ -189,6 +193,15 @@ async def stream_agent_response(
 
                 agent_name = getattr(event, "author", "root_agent") or "root_agent"
                 yield agent_status_event(agent_name, "done")
+
+        session = await session_service.get_session(
+            app_name=APP_NAME, user_id="user", session_id=session_id
+        )
+        if session is not None:
+            state = session.state
+            phase = compute_phase(state)
+            progress = progress_info(phase, state)
+            yield phase_event(phase.value, progress["step"], progress["total"], progress["label"])
 
         yield done_event()
 

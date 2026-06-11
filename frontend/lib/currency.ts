@@ -43,3 +43,9 @@ export function formatFlightPrice(priceUSD: number, origin: string, destination:
 export function formatUSD(priceUSD: number): string {
   return `$${Math.round(priceUSD).toLocaleString("en-US")}`;
 }
+
+export function formatInOriginCurrency(priceUSD: number, origin: string): string {
+  const originCountry = AIRPORT_COUNTRY[origin.toUpperCase()];
+  const originCurrency = CURRENCIES[originCountry] ?? CURRENCIES.US;
+  return formatInCurrency(priceUSD, originCurrency);
+}

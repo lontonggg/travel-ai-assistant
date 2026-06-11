@@ -1,167 +1,388 @@
-# Travel Booking Agent
+# FlightHub - Travel Booking Agent
 
-An AI-powered flight booking assistant that guides users through the entire booking process via a conversational chat interface. The agent handles everything from flight search to payment and e-ticket delivery — all through natural language.
+FlightHub is a conversational flight-booking app that combines an AI travel advisor with a deterministic booking workflow. The user can start loosely with a budget or vibe, get destination ideas, then move into a guided booking flow with interactive cards for passengers, dates, flights, seats, baggage, insurance, payment, and ticket confirmation.
 
----
+The important design choice in this project is that the LLM does not own the booking state. The backend computes the current booking phase from persisted state, then only allows the tools that make sense for that phase. The LLM handles conversation and routing, while the booking engine keeps the flow predictable.
 
-## What It Does
+## What This Project Does
 
-Users interact with an AI agent through a chat window. The agent understands intent, asks the right questions in the right order, and dynamically injects interactive UI components (date pickers, seat maps, payment forms) directly into the conversation. No forms to navigate, no separate pages — the entire booking happens inside the chat.
+- Lets users chat naturally to find and book flights.
+- Supports an advisor mode for undecided users who need destination ideas based on budget, vibe, and passenger count.
+- Supports a strict booking mode for users who already know where they want to go.
+- Streams agent responses and UI events from FastAPI to Next.js using Server-Sent Events.
+- Renders interactive UI blocks inside the chat instead of forcing the user to type every structured input.
+- Persists session state in SQLite through Google ADK's `DatabaseSessionService`.
+- Seeds mock flight data on backend startup.
+- Generates booking records, seat holds, payment records, invoice/email payloads, QR codes, and ticket/invoice HTML/PDF assets.
 
-**Supported routes:** Jakarta (CGK), Bali (DPS), Surabaya (SUB), Singapore (SIN), Bangkok (BKK), Phuket (HKT), Chiang Mai (CNX), Kuala Lumpur (KUL), Penang (PEN), Los Angeles (LAX), New York (JFK), San Francisco (SFO)
+Supported airport codes:
 
----
+| Region | Airports |
+|---|---|
+| Indonesia | `CGK` Jakarta, `DPS` Bali, `SUB` Surabaya |
+| Singapore | `SIN` Singapore |
+| Thailand | `BKK` Bangkok, `HKT` Phuket, `CNX` Chiang Mai |
+| Malaysia | `KUL` Kuala Lumpur, `PEN` Penang |
+| United States | `LAX` Los Angeles, `JFK` New York, `SFO` San Francisco |
 
 ## User Flow
 
-```
-User opens app
-    │
-    ▼
-Agent greets & detects nearest airport (geolocation)
-    │
-    ▼
-User states intent → "I want to fly to Bali next week"
-    │
-    ▼
-┌─────────────────────────────────────────────────────────┐
-│                  14-Phase Booking Flow                   │
-│                                                         │
-│  1. Origin airport                                      │
-│  2. Destination airport                                 │
-│  3. Trip type (one-way / round-trip)                    │
-│  4. Passenger count & details                           │
-│  5. Travel dates (date picker injected into chat)       │
-│  6. Outbound flight selection (flight cards shown)      │
-│  7. Seat selection (interactive seat map)               │
-│  8. Baggage options                                     │
-│  9. Travel insurance                                    │
-│ 10. Return flight (if round-trip)                       │
-│ 11. Return seat selection                               │
-│ 12. Booking summary & confirmation                      │
-│ 13. Payment (payment form injected into chat)           │
-│ 14. E-ticket + QR code sent via email                   │
-└─────────────────────────────────────────────────────────┘
-    │
-    ▼
-User receives booking confirmation + invoice email
+### 1. Advisor Flow
+
+Advisor flow is for users who are not ready to book yet.
+
+Example:
+
+```text
+User: "Aku punya budget 5 juta IDR, 4 hari, pengen beach vibe."
 ```
 
-The agent enforces strict phase ordering — it will not skip steps or proceed without required information.
+The backend routes this to `advisor_agent`, which can:
 
----
+- Ask for missing basics such as origin, budget, vibe, trip length, and passenger count.
+- Suggest destinations using `suggest_destinations_tool`.
+- Show destination cards with city, country, vibe tags, estimated round-trip price, daily cost estimate, and reason.
+- Estimate a full trip budget using `estimate_trip_budget_tool`.
+- Search or inspect flights when prices/times are useful for the recommendation.
+
+When the user chooses a concrete destination, the advisor stores the trip basics with `set_trip_basics_tool` and hands off to `booking_agent`.
+
+### 2. Booking Flow
+
+Booking flow is for users with a concrete route, or users who just selected a recommendation.
+
+The deterministic phases are:
+
+1. `basics`: collect origin, destination, passenger count, and cabin class.
+2. `passenger_form`: render passenger details form.
+3. `date_picker`: render departure/return date picker.
+4. `outbound_search`: search outbound flights and show flight cards.
+5. `outbound_seat`: show seat map for the selected outbound flight.
+6. `outbound_baggage`: hold outbound seats and collect baggage options.
+7. `outbound_insurance`: show optional insurance.
+8. `return_search`: search return flights, only for round trips.
+9. `return_seat`: show return seat map.
+10. `return_baggage`: hold return seats and collect return baggage.
+11. `return_insurance`: show optional return insurance.
+12. `order_summary`: create and show the booking draft.
+13. `payment`: show payment method UI and process payment.
+14. `done`: booking is complete.
+
+The frontend groups those phases into progress steps. One-way trips show 7 progress steps, while round trips show 8 because the return leg gets its own step.
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                        Frontend (Next.js)                    │
-│                                                              │
-│  ChatWindow  ──►  POST /api/chat (SSE stream)                │
-│      │                                                       │
-│      ▼                                                       │
-│  Stream Parser  ──►  text_delta | ui_component | agent_status│
-│      │                                                       │
-│      ▼                                                       │
-│  Dynamic UI Blocks (DatePicker, SeatMap, PaymentForm, ...)   │
-└──────────────────────────────┬───────────────────────────────┘
-                               │ HTTP + Server-Sent Events
-┌──────────────────────────────▼───────────────────────────────┐
-│                        Backend (FastAPI)                     │
-│                                                              │
-│  /api/chat  ──►  Session Manager  ──►  Root Agent (ADK)      │
-│                                             │                │
-│                              ┌──────────────▼─────────────┐ │
-│                              │         Agent Tools         │ │
-│                              │  search_flights             │ │
-│                              │  show_date_picker           │ │
-│                              │  get_seat_map               │ │
-│                              │  hold_seat                  │ │
-│                              │  create_booking_draft       │ │
-│                              │  process_payment            │ │
-│                              │  send_invoice_email         │ │
-│                              │  + 7 more tools             │ │
-│                              └──────────────┬─────────────┘ │
-│                                             │                │
-│  Services (FlightService, BookingService,   │                │
-│            EmailService)  ◄─────────────────┘                │
-│      │                                                       │
-│      ▼                                                       │
-│  SQLite Database (async, SQLAlchemy 2.0)                     │
-└──────────────────────────────────────────────────────────────┘
+```text
+Frontend: Next.js 15 + React 19 + TypeScript + Tailwind
+  |
+  | POST /api/chat
+  | Server-Sent Events: text_delta, ui_component, agent_status, phase, done, error
+  v
+Backend: FastAPI
+  |
+  | Google ADK Runner + DatabaseSessionService
+  v
+Root Agent
+  |
+  +-- advisor_agent
+  |     - destination suggestions
+  |     - budget estimates
+  |     - recommendation-oriented flight lookups
+  |
+  +-- booking_agent
+        - deterministic phase callback
+        - phase-specific tool guard
+        - booking/search/seat/payment/email tools
+  |
+  v
+Services
+  - FlightService
+  - BookingService
+  - SeatService
+  - PaymentService
+  - EmailService
+  - RecommendationService
+  |
+  v
+SQLite via SQLAlchemy async + aiosqlite
 ```
 
-### Key Design Decisions
+### Backend Responsibilities
 
-| Decision | Rationale |
-|---|---|
-| Google ADK (`LlmAgent`) | Provides structured tool-calling with Gemini models; handles multi-turn conversation state |
-| Server-Sent Events (SSE) | Enables real-time streaming of agent responses without WebSocket complexity |
-| UI components injected via stream | Agent triggers UI rendering by emitting `ui_component` events; frontend renders the appropriate React component |
-| SQLite + aiosqlite | Lightweight, zero-config database suitable for a demo/accelerator project |
-| In-memory sessions | Keeps session state simple; chat history is persisted client-side via localStorage |
+- `backend/app/main.py`: creates the FastAPI app, configures CORS, initializes DB tables, and seeds flights.
+- `backend/app/api/chat.py`: receives chat messages, adds date/location context, runs the ADK agent, and streams SSE events.
+- `backend/app/agents/root_agent.py`: routes users to advisor or booking.
+- `backend/app/agents/advisor_agent.py`: handles ideation and recommendations.
+- `backend/app/agents/booking_agent.py`: handles the strict booking flow.
+- `backend/app/agents/flow.py`: defines phases, allowed tools, state parsing, progress metadata, and phase instructions.
+- `backend/app/agents/tools/*`: agent-callable functions that return structured results and optional UI component payloads.
+- `backend/app/services/*`: application logic for flights, bookings, seats, payments, email, and recommendations.
+- `backend/app/db/*`: SQLAlchemy async database setup and models.
+- `backend/app/data/*`: airport, airline, and seed flight data.
 
----
+### Frontend Responsibilities
+
+- `frontend/app/page.tsx`: main app page.
+- `frontend/hooks/useChat.ts`: chat state, session handling, SSE consumption, and UI event handling.
+- `frontend/lib/api.ts`: `POST /api/chat` streaming client.
+- `frontend/lib/chat-stream.ts`: parses SSE data lines into typed chat events.
+- `frontend/components/chat/*`: chat shell, message bubbles, typing state, tool messages, agent status, and progress tracker.
+- `frontend/components/ui-blocks/*`: interactive components rendered from backend UI events.
+
+## Deterministic Flow
+
+The booking flow is enforced in code:
+
+1. The frontend sends a user message or a message generated by an interactive UI block.
+2. `booking_phase_callback` reads the latest user text.
+3. `parse_user_message` extracts structured slots into ADK session state.
+4. `compute_phase(state)` derives the current phase from explicit state fields.
+5. `phase_instruction(...)` injects the next allowed action into the model request.
+6. `booking_phase_guard(...)` blocks tools that are not allowed in the current phase.
+7. Tool results can include `ui` payloads, which are streamed to the frontend as `ui_component` events.
+8. After the agent finishes, the backend emits a `phase` event so the frontend progress tracker can update.
+
+This means the LLM can phrase the conversation, but it cannot skip from dates to payment, call seat tools before a flight is selected, or recreate a booking draft after one already exists.
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js 15, React 19, TypeScript, Tailwind CSS |
-| UI Components | Radix UI, Framer Motion, Lucide React |
-| Backend | FastAPI 0.115+, Python 3.11+ |
-| AI Agent | Google ADK (`google-adk`), Gemini via `google-genai` |
-| Database | SQLite via SQLAlchemy 2.0 + aiosqlite |
-| Email | aiosmtplib + Jinja2 templates |
-| PDF/QR | WeasyPrint, qrcode + Pillow |
+| UI | Radix UI primitives, Framer Motion, Lucide React, Sonner |
+| Backend | FastAPI, Python 3.11+, Uvicorn |
+| Agent framework | Google ADK, Google GenAI, Vertex AI-compatible config |
+| Database | SQLite, SQLAlchemy 2 async, aiosqlite |
+| Streaming | Server-Sent Events |
+| Templates | Jinja2 |
+| Email | aiosmtplib |
+| Ticket assets | WeasyPrint, qrcode, Pillow |
 
----
+## Requirements
 
-## Getting Started
-
-### Prerequisites
 - Python 3.11+
 - Node.js 18+
-- Google AI API key (Gemini)
+- npm
+- A Google/Vertex AI setup that works with `google-adk` and `google-genai`
+- Optional: `uv` if you prefer it over `pip`
+- Optional for local PDF generation: WeasyPrint system dependencies
 
-### 1. Clone the repo
+On macOS, if WeasyPrint fails because native libraries are missing:
+
 ```bash
-git clone <repo-url>
-cd travel-booking-agent
+brew install pango cairo gdk-pixbuf libffi
 ```
 
-### 2. Start the backend
+## Environment Variables
+
+Create `backend/.env`:
+
+```env
+GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_CLOUD_REGION=asia-southeast1
+GOOGLE_GENAI_USE_VERTEXAI=true
+MODEL_NAME=gemini-2.0-flash
+
+DATABASE_URL=sqlite+aiosqlite:///./travel_booking.db
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
+SMTP_USE_TLS=true
+
+FRONTEND_URL=http://localhost:3000
+```
+
+Create `frontend/.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+Notes:
+
+- The code defaults `DATABASE_URL` to `/mnt/gcs-db/travel_booking.db`, which is useful for the backend Docker image because it mounts a GCS bucket. For local development, use the local SQLite URL above.
+- `MODEL_NAME` defaults to `gemini-2.0-flash`.
+- SMTP values can be empty for development, but email sending will not work until they are configured.
+
+## Run Locally
+
+### 1. Backend
+
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env          # fill in GOOGLE_API_KEY and email config
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 3. Start the frontend
+The backend will start at:
+
+```text
+http://localhost:8000
+```
+
+Useful checks:
+
+```bash
+curl http://localhost:8000/health
+curl "http://localhost:8000/api/flights?origin=CGK&destination=DPS&date=2026-07-01&pax=1&class_type=economy"
+```
+
+### 2. Frontend
+
+In another terminal:
+
 ```bash
 cd frontend
 npm install
-cp .env.example .env.local    # set NEXT_PUBLIC_API_URL=http://localhost:8000
 npm run dev
 ```
 
-### 4. Open the app
-Visit [http://localhost:3000](http://localhost:3000) and start chatting.
+The frontend will start at:
 
----
+```text
+http://localhost:3000
+```
+
+## Try These Prompts
+
+Advisor mode:
+
+```text
+Aku dari Jakarta, budget 5 juta IDR buat 2 orang, pengen beach vibe 4 hari.
+```
+
+Direct booking mode:
+
+```text
+Book a flight from Jakarta to Bali for 2 passengers in economy.
+```
+
+Round trip:
+
+```text
+I want to fly from Singapore to Bangkok for 1 passenger, round trip.
+```
+
+## API Overview
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/health` | Backend health check |
+| `POST` | `/api/chat` | Main chat endpoint, streams SSE events |
+| `GET` | `/api/flights` | Search seeded flights |
+| `GET` | `/api/flights/{flight_id}` | Get flight details |
+| `GET` | `/api/flights/{flight_id}/seats` | Get seat map |
+| `GET` | `/api/bookings/{booking_id}` | Get booking by ID |
+| `GET` | `/api/bookings/pnr/{pnr}` | Get booking by PNR |
+
+`POST /api/chat` body:
+
+```json
+{
+  "message": "Book a flight from Jakarta to Bali",
+  "session_id": "optional-existing-session-id",
+  "detected_origin": {
+    "code": "CGK",
+    "city": "Jakarta"
+  }
+}
+```
+
+SSE event payloads are JSON objects with a `type` field. The frontend currently handles:
+
+- `text_delta`
+- `ui_component`
+- `agent_status`
+- `phase`
+- `done`
+- `error`
 
 ## Project Structure
 
-```
+```text
 travel-booking-agent/
-├── backend/          # FastAPI + Google ADK agent
-│   └── README.md     # Backend-specific docs
-├── frontend/         # Next.js chat interface
-│   └── README.md     # Frontend-specific docs
-└── README.md         # This file
+├── backend/
+│   ├── app/
+│   │   ├── agents/
+│   │   │   ├── root_agent.py
+│   │   │   ├── advisor_agent.py
+│   │   │   ├── booking_agent.py
+│   │   │   ├── flow.py
+│   │   │   └── tools/
+│   │   ├── api/
+│   │   │   ├── chat.py
+│   │   │   ├── flights.py
+│   │   │   └── bookings.py
+│   │   ├── core/
+│   │   ├── data/
+│   │   ├── db/
+│   │   ├── schemas/
+│   │   ├── services/
+│   │   └── main.py
+│   ├── templates/
+│   ├── Dockerfile
+│   ├── entrypoint.sh
+│   ├── pyproject.toml
+│   └── requirements.txt
+├── frontend/
+│   ├── app/
+│   ├── components/
+│   │   ├── chat/
+│   │   └── ui-blocks/
+│   ├── contexts/
+│   ├── hooks/
+│   ├── lib/
+│   ├── Dockerfile
+│   └── package.json
+└── README.md
 ```
 
-See [backend/README.md](backend/README.md) and [frontend/README.md](frontend/README.md) for detailed technical documentation.
+## Docker Notes
+
+There is a separate Dockerfile for each app:
+
+- `backend/Dockerfile`
+- `frontend/Dockerfile`
+
+Backend image behavior:
+
+- Exposes port `8080`.
+- Runs `entrypoint.sh`.
+- Expects `GCS_BUCKET_NAME` so it can mount a GCS bucket at `/mnt/gcs-db` using `gcsfuse`.
+- Uses `/mnt/gcs-db/travel_booking.db` by default through `DATABASE_URL`.
+
+Frontend image behavior:
+
+- Builds a Next.js standalone app.
+- Exposes port `3000`.
+- Accepts `NEXT_PUBLIC_API_URL` as a build argument.
+
+There is currently no root `docker-compose.yml`, so local development is simpler with the manual backend/frontend commands above.
+
+## Troubleshooting
+
+| Problem | Likely cause | Fix |
+|---|---|---|
+| `ModuleNotFoundError: google.adk` | Backend dependencies are not installed in the active environment | Activate the backend venv and run `pip install -r requirements.txt` |
+| Backend creates DB in `/mnt/gcs-db` or fails locally | Local `DATABASE_URL` is not set | Put `DATABASE_URL=sqlite+aiosqlite:///./travel_booking.db` in `backend/.env` |
+| Frontend cannot reach backend | `NEXT_PUBLIC_API_URL` is missing or wrong | Set `NEXT_PUBLIC_API_URL=http://localhost:8000` in `frontend/.env.local` |
+| CORS error | Backend does not know the frontend origin | Set `FRONTEND_URL=http://localhost:3000` in `backend/.env` |
+| WeasyPrint import/runtime error | Native PDF dependencies missing | Install native libraries or use a container with the backend Dockerfile dependencies |
+| Progress tracker does not move | Backend did not emit a `phase` event or state did not advance | Check backend logs and the browser Network tab for `/api/chat` SSE events |
+| Agent tries a tool too early | Phase guard blocked it | Check `PHASE_TOOLS` and `current_phase` in `backend/app/agents/flow.py` |
+
+## Development Checklist
+
+- Backend starts successfully on `http://localhost:8000`.
+- `GET /health` returns `{"status":"ok"}`.
+- Frontend starts successfully on `http://localhost:3000`.
+- Advisor prompt returns destination suggestions.
+- Direct booking prompt enters the passenger/date/flight flow.
+- Flight cards render with badges when available.
+- Seat map, baggage, insurance, summary, payment, and success states render from `ui_component` events.
+- Browser refresh keeps the same `session_id` in `sessionStorage` and resumes persisted backend session state.

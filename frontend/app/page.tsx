@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Maximize2, Minimize2, MoreVertical, RotateCcw, Download, Bot } from "lucide-react";
 import ChatWindow from "@/components/chat/ChatWindow";
+import ProgressTracker from "@/components/chat/ProgressTracker";
 import { ChatContext } from "@/contexts/ChatContext";
 import { useChat } from "@/hooks/useChat";
 import type { Message } from "@/lib/types";
@@ -151,6 +152,8 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+
+          <ProgressTracker phase={chat.phase} />
 
           {/* Chat */}
           <div className="flex-1 flex flex-col min-h-0">

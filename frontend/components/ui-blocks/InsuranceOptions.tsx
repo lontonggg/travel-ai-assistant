@@ -80,15 +80,12 @@ export default function InsuranceOptions({
     setSubmitted(true);
 
     if (selectedOptions.length === 0) {
-      sendMessage("No insurance, thanks. Please proceed.");
+      sendMessage("No insurance for me. Let's continue.");
       return;
     }
 
-    const lines = selectedOptions
-      .map((o) => `${o.label} (${pax} × ${formatUSD(o.price_per_person)} = ${formatUSD(o.price_per_person * pax)})`)
-      .join(", ");
-    const tripText = is_round_trip ? " for round-trip" : "";
-    sendMessage(`I'd like ${lines}${tripText}. Total insurance: ${formatUSD(totalPrice)}.`);
+    const labels = selectedOptions.map((o) => o.label).join(" and ");
+    sendMessage(`Add ${labels} to my booking (${formatUSD(totalPrice)} total).`);
   };
 
   const isDisabled = disabled || submitted;

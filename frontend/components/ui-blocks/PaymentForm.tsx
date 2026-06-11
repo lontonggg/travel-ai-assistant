@@ -31,8 +31,12 @@ export default function PaymentForm({ booking_id, total_amount, booking, disable
   const handleSelect = (id: string) => {
     if (disabled || selected) return;
     setSelected(id);
-    const labels: Record<string, string> = { credit_card: "credit card", debit_card: "debit card", qris: "QRIS" };
-    sendMessage(`I'd like to pay with ${labels[id] ?? id}.`);
+    const messages: Record<string, string> = {
+      credit_card: "I'll pay with my credit card.",
+      debit_card: "I'll use my debit card.",
+      qris: "Let me pay with QRIS."
+    };
+    sendMessage(messages[id] ?? "I'm ready to pay.");
   };
 
   return (
@@ -43,8 +47,15 @@ export default function PaymentForm({ booking_id, total_amount, booking, disable
           <div className="text-xs font-semibold text-gray-900">Choose Payment Method</div>
           {pnr && <div className="text-[9px] text-gray-500 mt-0.5">Booking {pnr}</div>}
         </div>
-        {finalTotal && <div className="text-base font-bold text-accent">{fmt(finalTotal)}</div>}
       </div>
+
+      {/* Total Amount */}
+      {finalTotal && (
+        <div className="bg-white border border-amber-300 rounded-lg px-3 py-2.5 flex items-center justify-between">
+          <span className="text-xs font-medium text-gray-700">Total Amount</span>
+          <span className="text-lg font-bold text-accent">{fmt(finalTotal)}</span>
+        </div>
+      )}
 
       {/* Methods */}
       <div className="flex flex-col gap-2">

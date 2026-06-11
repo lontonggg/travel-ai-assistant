@@ -11,6 +11,8 @@ import PaymentForm from "@/components/ui-blocks/PaymentForm";
 import BookingSummary from "@/components/ui-blocks/BookingSummary";
 import PaymentSuccess from "@/components/ui-blocks/PaymentSuccess";
 import DateRangeCalendar from "@/components/ui-blocks/DateRangeCalendar";
+import DestinationSuggestions from "@/components/ui-blocks/DestinationSuggestions";
+import BudgetBreakdown from "@/components/ui-blocks/BudgetBreakdown";
 
 export default function ToolMessage({ event, disabled = false }: { event: UiComponentEvent; disabled?: boolean }) {
   const { kind, props } = event;
@@ -53,6 +55,10 @@ export default function ToolMessage({ event, disabled = false }: { event: UiComp
         </div>
       );
     }
+    case "destination_suggestions":
+      return <DestinationSuggestions {...(p as unknown as ComponentProps<typeof DestinationSuggestions>)} disabled={disabled} />;
+    case "budget_breakdown":
+      return <BudgetBreakdown {...(p as unknown as ComponentProps<typeof BudgetBreakdown>)} />;
     case "error_message": {
       const msg = (props as { message?: string }).message ?? "An error occurred.";
       return <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">{msg}</div>;

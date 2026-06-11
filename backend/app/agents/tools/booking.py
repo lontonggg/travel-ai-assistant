@@ -1,6 +1,7 @@
 import json
 from typing import Any, Optional
 
+from google.adk.tools import ToolContext
 from sqlalchemy import select
 
 from app.data.airlines import BUSINESS_CLASS_AIRLINES
@@ -188,6 +189,7 @@ async def create_booking_draft_tool(
     flight_id: int,
     class_type: str,
     passengers: list[dict[str, Any]],
+    tool_context: ToolContext,
     travel_date: str = "",
     outbound_baggage_kg: int = 0,
     outbound_baggage_price: float = 0.0,
@@ -222,6 +224,8 @@ async def create_booking_draft_tool(
             return_flight_id=return_flight_id or None,
             return_travel_date=return_travel_date or None,
         )
+
+    tool_context.state["booking_id"] = booking["id"]
 
     # Compute price breakdown
     out_flight = await _fetch_flight(flight_id)
