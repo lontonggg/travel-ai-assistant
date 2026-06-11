@@ -45,7 +45,7 @@ jobs:
             --max-instances=1 \
             --memory=1Gi \
             --cpu=1 \
-            --set-env-vars="GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }},GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }},DATABASE_URL=sqlite+aiosqlite:////mnt/gcs-db/travel_booking.db,FRONTEND_URL=${{ secrets.FRONTEND_URL }}"
+            --set-env-vars="GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }},FRONTEND_URL=${{ secrets.FRONTEND_URL }}"
 
   deploy-frontend:
     name: Deploy Frontend
