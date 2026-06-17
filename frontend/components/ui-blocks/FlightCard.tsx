@@ -48,7 +48,7 @@ export default function FlightCard({
     <motion.div
       whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
-      className={`flex-shrink-0 w-64 rounded-2xl border cursor-pointer transition-all overflow-hidden ${
+      className={`flex-shrink-0 w-full rounded-2xl border cursor-pointer transition-all overflow-hidden ${
         selected ? "border-accent ring-2 ring-accent/20" : "border-gray-200 hover:border-gray-300"
       }`}
       onClick={() => onSelect?.(flight)}

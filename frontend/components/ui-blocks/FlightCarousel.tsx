@@ -22,9 +22,7 @@ export default function FlightCarousel({ flights, origin, destination, date, dis
   const handleSelect = (flight: Flight) => {
     if (disabled) return;
     setSelectedId(flight.id);
-    const depTime = new Date(flight.departure_time).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-    const price = flight.price_economy ? `Rp${(flight.price_economy / 1000).toFixed(0)}K` : "price pending";
-    sendMessage(`I want to book ${flight.flight_number} departing at ${depTime} (${price}).`);
+    sendMessage(`I'd like to book flight ${flight.flight_number} (ID: ${flight.id}).`);
   };
 
   if (!flights || flights.length === 0) {
@@ -47,7 +45,7 @@ export default function FlightCarousel({ flights, origin, destination, date, dis
 
       <p className="text-[10px] text-gray-500 px-3">Tap a flight to select it</p>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 max-h-[480px] overflow-y-auto">
         {flights.map((f) => (
           <FlightCard
             key={f.id}

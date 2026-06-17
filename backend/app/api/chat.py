@@ -11,7 +11,7 @@ from google.adk.sessions import DatabaseSessionService
 from google.genai.types import Content, Part
 from pydantic import BaseModel
 
-from app.agents.flow import compute_phase, progress_info
+from app.agents.flow import Phase, compute_phase, progress_info
 from app.agents.root_agent import root_agent
 from app.core.config import settings
 from app.core.ui_events import (
@@ -121,10 +121,28 @@ def _extract_ui(response) -> dict | None:
     return None
 
 
+def _get_phase_auto_ui(phase: Phase, state: dict) -> dict | None:
+    """Return a UI component to auto-emit for phases where the LLM reliably skips the show-UI tool."""
+    if phase == Phase.DATE_PICKER:
+        return {
+            "kind": "date_range_calendar",
+            "props": {
+                "origin": state.get("origin", ""),
+                "destination": state.get("destination", ""),
+                "pax": state.get("pax", 1),
+                "class_type": state.get("class_type", "economy"),
+                "min_date": date.today().isoformat(),
+            },
+        }
+    return None
+
+
 async def stream_agent_response(
     message: str, session_id: str
 ) -> AsyncGenerator[str, None]:
     try:
+        emitted_ui_kinds: set[str] = set()
+
         runner = Runner(
             agent=root_agent,
             app_name=APP_NAME,
@@ -173,6 +191,7 @@ async def stream_agent_response(
                     for response in responses:
                         ui = _extract_ui(response)
                         if ui:
+                            emitted_ui_kinds.add(ui["kind"])
                             yield ui_component_event(
                                 kind=ui["kind"],
                                 props=ui.get("props", {}),
@@ -202,6 +221,15 @@ async def stream_agent_response(
             phase = compute_phase(state)
             progress = progress_info(phase, state)
             yield phase_event(phase.value, progress["step"], progress["total"], progress["label"])
+
+            # Auto-emit UI widgets for phases where the LLM skips the tool call
+            auto_ui = _get_phase_auto_ui(phase, state)
+            if auto_ui and auto_ui["kind"] not in emitted_ui_kinds:
+                yield ui_component_event(
+                    kind=auto_ui["kind"],
+                    props=auto_ui["props"],
+                    message_id=str(uuid.uuid4()),
+                )
 
         yield done_event()
 

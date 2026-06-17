@@ -84,7 +84,8 @@ def booking_phase_callback(callback_context: CallbackContext, llm_request: LlmRe
 def booking_phase_guard(tool: BaseTool, args: dict, tool_context: ToolContext) -> Optional[dict]:
     """Defense-in-depth: blocks tool calls that don't belong to the current phase."""
     state = tool_context.state
-    phase = Phase(state.get("current_phase", Phase.BASICS.value))
+    phase = compute_phase(state.to_dict())
+    state["current_phase"] = phase.value
     allowed = PHASE_TOOLS.get(phase, set()) | UNIVERSAL_TOOLS
 
     if tool.name not in allowed:

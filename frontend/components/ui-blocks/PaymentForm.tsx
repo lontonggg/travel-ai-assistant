@@ -49,14 +49,6 @@ export default function PaymentForm({ booking_id, total_amount, booking, disable
         </div>
       </div>
 
-      {/* Total Amount */}
-      {finalTotal && (
-        <div className="bg-white border border-amber-300 rounded-lg px-3 py-2.5 flex items-center justify-between">
-          <span className="text-xs font-medium text-gray-700">Total Amount</span>
-          <span className="text-lg font-bold text-accent">{fmt(finalTotal)}</span>
-        </div>
-      )}
-
       {/* Methods */}
       <div className="flex flex-col gap-2">
         {METHODS.map(({ id, label, icon: Icon, hint }) => (

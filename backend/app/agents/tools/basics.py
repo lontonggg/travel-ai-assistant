@@ -44,5 +44,6 @@ async def set_trip_basics_tool(
             "destination": destination.upper(),
             "pax": pax,
             "class_type": class_type,
-        }
+        },
+        "ui": {"kind": "passenger_form", "props": {"pax": pax}},
     }

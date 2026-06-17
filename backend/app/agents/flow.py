@@ -37,11 +37,11 @@ PHASE_TOOLS: dict[Phase, set[str]] = {
     Phase.BASICS: {"set_trip_basics_tool"},
     Phase.PASSENGER_FORM: {"show_passenger_form_tool"},
     Phase.DATE_PICKER: {"show_date_picker_tool"},
-    Phase.OUTBOUND_SEARCH: {"search_flights_tool"},
+    Phase.OUTBOUND_SEARCH: {"search_flights_tool", "get_flight_details_tool"},
     Phase.OUTBOUND_SEAT: {"get_seat_map_tool"},
     Phase.OUTBOUND_BAGGAGE: {"hold_seat_tool"},
     Phase.OUTBOUND_INSURANCE: {"show_insurance_tool"},
-    Phase.RETURN_SEARCH: {"search_flights_tool"},
+    Phase.RETURN_SEARCH: {"search_flights_tool", "get_flight_details_tool"},
     Phase.RETURN_SEAT: {"get_seat_map_tool"},
     Phase.RETURN_BAGGAGE: {"hold_seat_tool"},
     Phase.RETURN_INSURANCE: {"show_insurance_tool"},
@@ -51,7 +51,7 @@ PHASE_TOOLS: dict[Phase, set[str]] = {
 }
 
 # Always allowed regardless of phase (read-only / informational).
-UNIVERSAL_TOOLS: set[str] = {"get_booking_tool", "get_flight_details_tool"}
+UNIVERSAL_TOOLS: set[str] = {"get_booking_tool"}
 
 # Step grouping for the frontend progress tracker.
 _PROGRESS_STEPS_ONE_WAY: list[list[Phase]] = [
@@ -134,10 +134,25 @@ _DATE_RE = re.compile(
     r"Departure date:\s*(\d{4}-\d{2}-\d{2})(?:,\s*return date:\s*(\d{4}-\d{2}-\d{2}))?\.\s*(Round-trip|One-way)",
     re.IGNORECASE,
 )
+_NL_DATE_RE = re.compile(
+    r"(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
+    r"jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{4})",
+    re.IGNORECASE,
+)
+_NL_MONTH_MAP = {
+    "jan": "01", "feb": "02", "mar": "03", "apr": "04", "may": "05", "jun": "06",
+    "jul": "07", "aug": "08", "sep": "09", "oct": "10", "nov": "11", "dec": "12",
+}
 _FLIGHT_PICK_RE = re.compile(r"I'?d like to book flight\s+\S+\s+\(ID:\s*(\d+)\)", re.IGNORECASE)
-_SEAT_RE = re.compile(r"(?:I'?d like seat|Seat selection:)\s*([A-Za-z0-9,\s]+)\.", re.IGNORECASE)
+_SEAT_RE = re.compile(
+    r"(?:I'?d like seat|Seat selection:|Let me take seat|We'?ll sit in seats?)\s*([A-Za-z0-9,\s]+)\.",
+    re.IGNORECASE,
+)
 _SEAT_CODE_RE = re.compile(r"\d+[A-Za-z]")
-_PAYMENT_METHOD_RE = re.compile(r"I'?d like to pay with (credit card|debit card|QRIS)", re.IGNORECASE)
+_PAYMENT_METHOD_RE = re.compile(
+    r"(?:pay with(?:\s+my)?|use\s+my)\s+(credit card|debit card|QRIS)",
+    re.IGNORECASE,
+)
 
 
 def parse_user_message(text: str, state: Any, phase_before: Phase) -> None:
@@ -153,11 +168,16 @@ def parse_user_message(text: str, state: Any, phase_before: Phase) -> None:
     clean = _clean_text(text)
 
     # Passenger form submission
-    if "Passenger details:" in clean or clean.startswith("My details:"):
+    if (
+        "Passenger details:" in clean
+        or clean.startswith("My details:")
+        or clean.startswith("Here's my info:")
+        or clean.startswith("Traveling with me:")
+    ):
         state["passengers_submitted"] = True
         return
 
-    # Date picker submission
+    # Date picker submission (calendar widget format)
     m = _DATE_RE.search(clean)
     if m:
         state["departure_date"] = m.group(1)
@@ -165,6 +185,20 @@ def parse_user_message(text: str, state: Any, phase_before: Phase) -> None:
             state["return_date"] = m.group(2)
         state["round_trip"] = m.group(3).lower() == "round-trip"
         return
+
+    # Natural language date (e.g. "17 Jun 2026", "June 17 2026") — only in date picker phase
+    if phase_before == Phase.DATE_PICKER:
+        nl_matches = _NL_DATE_RE.findall(clean)
+        if nl_matches:
+            def _to_iso(day: str, mon: str, year: str) -> str:
+                return f"{year}-{_NL_MONTH_MAP[mon[:3].lower()]}-{day.zfill(2)}"
+            state["departure_date"] = _to_iso(*nl_matches[0])
+            if len(nl_matches) > 1:
+                state["return_date"] = _to_iso(*nl_matches[1])
+                state["round_trip"] = True
+            else:
+                state["round_trip"] = False
+            return
 
     # Flight selection (outbound or return depending on current phase)
     m = _FLIGHT_PICK_RE.search(clean)
@@ -196,7 +230,12 @@ def parse_user_message(text: str, state: Any, phase_before: Phase) -> None:
         return
 
     # Insurance confirmation / skip
-    if "Total insurance:" in clean or clean.startswith("No insurance, thanks"):
+    if (
+        "Total insurance:" in clean
+        or clean.startswith("No insurance, thanks")
+        or clean.startswith("No insurance for me")
+        or clean.startswith("Add ") and "to my booking" in clean
+    ):
         if phase_before == Phase.RETURN_INSURANCE:
             state["return_insurance_done"] = True
         else:
@@ -225,12 +264,12 @@ _PHASE_INSTRUCTIONS: dict[Phase, str] = {
         "pax count (and class, default economy). Resolve city/country names to IATA codes from the "
         "airport list. Do NOT ask about dates — those are handled visually later. Once origin, "
         "destination, pax and class are all known, call set_trip_basics_tool(origin, destination, pax, "
-        "class_type) — this is the ONLY tool you may call in this phase. After it succeeds, immediately "
-        "continue to the next phase's action in the same turn."
+        "class_type) — this is the ONLY tool you may call in this phase. After it succeeds, reply briefly: "
+        "\"Let's get to know everyone flying — please fill in the details below.\""
     ),
     Phase.PASSENGER_FORM: (
-        "CURRENT PHASE: Passenger form. Call show_passenger_form_tool(pax=N). Reply briefly: "
-        "\"Let's get to know everyone flying — please fill in the details below.\""
+        "CURRENT PHASE: Passenger form. The form is already visible. Wait for the user to submit their "
+        "passenger details — do NOT call any tools. When the user submits, acknowledge briefly."
     ),
     Phase.DATE_PICKER: (
         "CURRENT PHASE: Date picker. Call show_date_picker_tool(origin, destination, pax, class_type, "
