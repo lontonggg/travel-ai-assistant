@@ -282,10 +282,7 @@ _PHASE_INSTRUCTIONS: dict[Phase, str] = {
         "class_type, trip_type=\"outbound\") using the departure date the user picked. Reply: \"Here are "
         "the flights for your departure — pick the one that works best.\""
     ),
-    Phase.OUTBOUND_SEAT: (
-        "CURRENT PHASE: Outbound seat selection. Call get_seat_map_tool(flight_id, pax) for the outbound "
-        "flight the user picked. Reply: \"Nice choice! Now let's pick your seats.\""
-    ),
+    # Phase.OUTBOUND_SEAT is handled dynamically in phase_instruction() with injected flight_id/pax
     Phase.OUTBOUND_BAGGAGE: (
         "CURRENT PHASE: Outbound baggage. Call hold_seat_tool(flight_id, seats, pax, passenger_names) for "
         "the outbound flight — seats is comma-separated (e.g. '5B,5C'), passenger_names is comma-separated "
@@ -302,10 +299,7 @@ _PHASE_INSTRUCTIONS: dict[Phase, str] = {
         "the return date, trip_type=\"return\". Reply: \"Now let's find your way back — here are the "
         "return flights.\""
     ),
-    Phase.RETURN_SEAT: (
-        "CURRENT PHASE: Return seat selection. Call get_seat_map_tool(flight_id, pax) for the return "
-        "flight. Reply: \"Pick your seats for the return trip.\""
-    ),
+    # Phase.RETURN_SEAT is handled dynamically in phase_instruction() with injected flight_id/pax
     Phase.RETURN_BAGGAGE: (
         "CURRENT PHASE: Return baggage. Call hold_seat_tool for the return flight (same args as outbound "
         "baggage but with the return flight_id and seats). Reply: \"Got it. How about baggage for the "
@@ -320,6 +314,26 @@ _PHASE_INSTRUCTIONS: dict[Phase, str] = {
 
 def phase_instruction(phase: Phase, state: dict[str, Any]) -> str:
     """Return the per-phase instruction text to inject this turn."""
+    if phase == Phase.OUTBOUND_SEAT:
+        flight_id = state.get("outbound_flight_id", "?")
+        pax = state.get("pax", 1)
+        return (
+            f"CURRENT PHASE: Outbound seat selection. You MUST call "
+            f"get_seat_map_tool(flight_id={flight_id}, pax={pax}) RIGHT NOW — "
+            "this is the ONLY tool you are allowed to call. "
+            "Do NOT call get_flight_details_tool or any other tool. "
+            "Reply: \"Nice choice! Now let's pick your seats.\""
+        )
+    if phase == Phase.RETURN_SEAT:
+        flight_id = state.get("return_flight_id", "?")
+        pax = state.get("pax", 1)
+        return (
+            f"CURRENT PHASE: Return seat selection. You MUST call "
+            f"get_seat_map_tool(flight_id={flight_id}, pax={pax}) RIGHT NOW — "
+            "this is the ONLY tool you are allowed to call. "
+            "Do NOT call get_flight_details_tool or any other tool. "
+            "Reply: \"Pick your seats for the return trip.\""
+        )
     if phase == Phase.ORDER_SUMMARY:
         if not state.get("booking_id"):
             return (

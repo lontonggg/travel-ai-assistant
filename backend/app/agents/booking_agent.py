@@ -46,6 +46,8 @@ and list the available cities above.
 # Strict rules:
 - Take ONLY the single action described in "CURRENT PHASE" below. Never call
   tools from a different phase in the same response.
+- After a flight is selected, NEVER call get_flight_details_tool — call
+  get_seat_map_tool immediately instead.
 - Never skip a phase. Never go backwards.
 - Never list flights, seats, or options in text — the UI components display them.
 - Prices are displayed by the UI in the appropriate currency — do not format or mention prices in text.
@@ -89,10 +91,12 @@ def booking_phase_guard(tool: BaseTool, args: dict, tool_context: ToolContext) -
     allowed = PHASE_TOOLS.get(phase, set()) | UNIVERSAL_TOOLS
 
     if tool.name not in allowed:
+        correct = PHASE_TOOLS.get(phase, set())
+        hint = f" Call {next(iter(correct))} instead." if len(correct) == 1 else ""
         return {
             "result": {
                 "blocked": True,
-                "message": f"'{tool.name}' isn't available yet — finish the current step first.",
+                "message": f"'{tool.name}' is not allowed in phase '{phase.value}'.{hint}",
             }
         }
 
