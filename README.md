@@ -155,7 +155,7 @@ This means the LLM can phrase the conversation, but it cannot skip from dates to
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js 15, React 19, TypeScript, Tailwind CSS |
-| UI | Radix UI primitives, Framer Motion, Lucide React, Sonner |
+| UI | Radix UI primitives, Framer Motion, Lucide React, Sonner, react-markdown |
 | Backend | FastAPI, Python 3.11+, Uvicorn |
 | Agent framework | Google ADK, Google GenAI, Vertex AI-compatible config |
 | Database | SQLite, SQLAlchemy 2 async, aiosqlite |
@@ -180,6 +180,8 @@ brew install pango cairo gdk-pixbuf libffi
 ```
 
 ## Environment Variables
+
+There is no `.env.example` file — this section is the canonical reference.
 
 Create `backend/.env`:
 
@@ -210,7 +212,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 Notes:
 
 - The code defaults `DATABASE_URL` to `/mnt/gcs-db/travel_booking.db`, which is useful for the backend Docker image because it mounts a GCS bucket. For local development, use the local SQLite URL above.
-- `MODEL_NAME` defaults to `gemini-2.5-flash`.
+- `MODEL_NAME` defaults to `gemini-2.5-flash`. This must be a model available in your Google Cloud project via Vertex AI or the Google GenAI API — using an unavailable model name will cause runtime errors.
 - SMTP values can be empty for development, but email sending will not work until they are configured.
 
 ## Run Locally
@@ -256,10 +258,12 @@ http://localhost:3000
 
 ## Try These Prompts
 
+The app understands natural language across multiple languages (English, Indonesian, and others).
+
 Advisor mode:
 
 ```text
-Aku dari Jakarta, budget 5 juta IDR buat 2 orang, pengen beach vibe 4 hari.
+I'm in Jakarta, budget around $300 for 2 people, looking for a beach vibe, 4 days.
 ```
 
 Direct booking mode:
