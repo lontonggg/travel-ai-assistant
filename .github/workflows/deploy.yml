@@ -8,6 +8,7 @@ env:
   REGION: asia-southeast1
   REGISTRY: asia-southeast1-docker.pkg.dev
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  MODEL_NAME: gemini-2.5-flash
 
 jobs:
   deploy-backend:
@@ -45,7 +46,7 @@ jobs:
             --max-instances=1 \
             --memory=1Gi \
             --cpu=1 \
-            --set-env-vars="GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }},FRONTEND_URL=${{ secrets.FRONTEND_URL }}"
+            --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=True,GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},GOOGLE_CLOUD_REGION=${{ env.REGION }},MODEL_NAME=${{ env.MODEL_NAME }},FRONTEND_URL=${{ secrets.FRONTEND_URL }},SMTP_HOST=${{ secrets.SMTP_HOST }},SMTP_PORT=${{ secrets.SMTP_PORT }},SMTP_USER=${{ secrets.SMTP_USER }},SMTP_PASS=${{ secrets.SMTP_PASS }},SMTP_FROM=${{ secrets.SMTP_FROM }},SMTP_USE_TLS=${{ secrets.SMTP_USE_TLS }}"
 
   deploy-frontend:
     name: Deploy Frontend
